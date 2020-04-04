@@ -250,6 +250,7 @@ namespace FlubuCore.Targeting
 
         public virtual void LogBuildSummary(IFlubuSession session)
         {
+            session.LogInfo($"{Environment.NewLine}Target\tStatus   \tDuration");
             foreach (var target in EnumerateExecutedTargets())
             {
                 var targt = target as Target;
@@ -279,6 +280,27 @@ namespace FlubuCore.Targeting
                         }
                     }
                 }
+
+                var targetElapsed = targt.TaskStopwatch.Elapsed.ToString(@"hh\:mm\:ss\.f");
+#if !NETSTANDARD1_6
+                var color = Color.Black;
+                switch (targt.TaskStatus)
+                {
+                    case TaskStatus.Failed:
+                        color = Color.Red;
+                        break;
+                    case TaskStatus.Finished:
+                        color = Color.Green;
+                        break;
+                    case TaskStatus.NotRan:
+                    case TaskStatus.Skipped:
+                        break;
+                }
+
+                session.LogInfo($"{targt.TargetName}\t{targt.TaskStatus}   \t{targetElapsed}", color);
+#else
+                session.LogInfo($"{targt.TargetName}\t{targt.TaskStatus}\t{targetElapsed}");
+#endif
             }
 
             if (session.Args.DryRun)
@@ -289,6 +311,7 @@ namespace FlubuCore.Targeting
             {
                 TimeSpan buildDuration = session.BuildStopwatch.Elapsed;
                 session.LogInfo(" ");
+
 #if !NETSTANDARD1_6
                 session.LogInfo(session.HasFailed ? "BUILD FAILED" : "BUILD SUCCESSFUL", session.HasFailed ? Color.Red : Color.Green);
                 session.LogInfo($"Build finish time: {DateTime.Now:g}", Color.DimGray);
