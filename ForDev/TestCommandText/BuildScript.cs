@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using FlubuCore.Context;
 using FlubuCore.Context.Attributes.BuildProperties;
 using FlubuCore.IO;
@@ -10,31 +11,35 @@ namespace TestCommandText
 {
     public class BuildScript : DefaultBuildScript
     {
-        protected new FullPath RootDirectory => new FullPath(@"d:\Work\GitHub\FlubuCore\ForDev\TestCommandText\");
-
         public FullPath OutputDir => RootDirectory.CombineWith(@"bin");
 
         [SolutionFileName]
-        public string SolutionFileName => RootDirectory.CombineWith("TestCommandText.sln");
+        public string SolutionFileName => "TestCommandText.sln";
 
         [BuildConfiguration]
         public string BuildConfiguration { get; set; } = "Release"; // Debug or Release
 
-        public BuildVersion ProductVersion { get; set; } = new BuildVersion();
-
         protected override void ConfigureBuildProperties(IBuildPropertiesContext context)
         {
-            ProductVersion.Version = new Version("3.0.0");
+            context.Properties.Set(BuildProps.ProductRootDir, @"d:\Work\GitHub\FlubuCore\ForDev\TestCommandText");
         }
 
         protected override void ConfigureTargets(ITaskContext session)
         {
             var compile = session.CreateTarget("compile")
                 .SetDescription("Compile the solution.")
-                .AddCoreTask(x => x.Restore())
                 .AddCoreTask(x => x.Build()
-                    .Output(OutputDir)
-                    .Version(ProductVersion.Version.ToString()));
+                    .OnError((context, ex) => 
+                    {
+                        context.LogError($"糟糕, 編譯失敗了: {ex}", Color.Red);
+                        
+                    })
+                );
+
+            var test = session.CreateTarget("test")
+                .SetDescription("test")
+                .DependsOn(compile)
+                .Do(c => { throw new Exception("test error"); });
         }
     }
 }

@@ -8,7 +8,7 @@ namespace TestCommandText
         static void Main(string[] args)
         {
             var engine = new FlubuEngine();
-            engine.RunScript<BuildScript>(new string[] { "compile" });
+            engine.RunScript<BuildScript>(new string[] { "test" });
         }
     }
 }
