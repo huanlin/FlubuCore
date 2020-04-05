@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using FlubuCore.Context;
 using FlubuCore.Context.FluentInterface;
+using FlubuCore.Infrastructure;
 using FlubuCore.Scripting;
 using FlubuCore.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -250,7 +251,10 @@ namespace FlubuCore.Targeting
 
         public virtual void LogBuildSummary(IFlubuSession session)
         {
-            session.LogInfo($"{Environment.NewLine}Target\tStatus   \tDuration");
+            int maxTargetNameLength = GetTargetNameMaxLength();
+
+            LogTargetSummaryTitle();
+
             foreach (var target in EnumerateExecutedTargets())
             {
                 var targt = target as Target;
@@ -281,26 +285,7 @@ namespace FlubuCore.Targeting
                     }
                 }
 
-                var targetElapsed = targt.TaskStopwatch.Elapsed.ToString(@"hh\:mm\:ss\.f");
-#if !NETSTANDARD1_6
-                var color = Color.Black;
-                switch (targt.TaskStatus)
-                {
-                    case TaskStatus.Failed:
-                        color = Color.Red;
-                        break;
-                    case TaskStatus.Finished:
-                        color = Color.Green;
-                        break;
-                    case TaskStatus.NotRan:
-                    case TaskStatus.Skipped:
-                        break;
-                }
-
-                session.LogInfo($"{targt.TargetName}\t{targt.TaskStatus}   \t{targetElapsed}", color);
-#else
-                session.LogInfo($"{targt.TargetName}\t{targt.TaskStatus}\t{targetElapsed}");
-#endif
+                LogTargetSummary(targt);
             }
 
             if (session.Args.DryRun)
@@ -325,6 +310,68 @@ namespace FlubuCore.Targeting
                     buildDuration.Minutes,
                     buildDuration.Seconds,
                     (int)buildDuration.TotalSeconds));
+#endif
+            }
+
+            const string TargetTitle = "Target";
+            const string DurationTitle = "Duration";
+            const string StatusTitle = "Status";
+            const int DurationLength = 8;
+            const int StatusLength = 10;
+
+            int GetTargetNameMaxLength()
+            {
+                var executedTargetNames = _targets.Where(t => _executedTargets.Contains(t.Key))
+                                                  .Select(t => t.Value.TargetName);
+                int maxLength = executedTargetNames.Max(s => s.Length);
+                if (maxLength < TargetTitle.Length)
+                {
+                    maxLength = TargetTitle.Length;
+                }
+
+                return maxLength;
+            }
+
+            void LogTargetSummaryTitle()
+            {
+                session.LogInfo(Environment.NewLine + Environment.NewLine +
+                                TargetTitle.PadRight(maxTargetNameLength + 2) +
+                                DurationTitle.PadRight(DurationLength + 2) +
+                                StatusTitle);
+                session.LogInfo(new string('-', maxTargetNameLength + 2) +
+                                new string('-', DurationLength + 2) +
+                                new string('-', StatusLength + 2));
+            }
+
+#if !NETSTANDARD1_6
+            Color GetStatusColor(TaskStatus status)
+            {
+                var color = Color.Black;
+                switch (status)
+                {
+                    case TaskStatus.Failed:
+                        color = Color.Red;
+                        break;
+                    case TaskStatus.Finished:
+                        color = Color.Green;
+                        break;
+                    default:
+                        break;
+                }
+
+                return color;
+            }
+#endif
+            void LogTargetSummary(Target t)
+            {
+                var targetName = t.TargetName.Capitalize().PadRight(maxTargetNameLength + 2);
+                var duration = t.TaskStopwatch.Elapsed.ToString(@"hh\:mm\:ss").PadRight(DurationLength + 2);
+                var status = t.TaskStatus.ToString().PadRight(StatusLength + 2);
+#if !NETSTANDARD1_6
+                var color = GetStatusColor(t.TaskStatus);
+                session.LogInfo($"{targetName}{duration}{status}", color);
+#else
+                session.LogInfo($"{targetName}{duration}{status}");
 #endif
             }
         }
